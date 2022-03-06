@@ -253,16 +253,7 @@ class GraphQLCoreConverter:
 
             return graphql_fields
 
-        is_type_of: Optional[Callable[[Any, GraphQLResolveInfo], bool]]
-        if object_type.is_type_of:
-            is_type_of = object_type.is_type_of
-        elif object_type.interfaces:
-
-            def is_type_of(obj: Any, _info: GraphQLResolveInfo) -> bool:
-                return isinstance(obj, object_type.origin)
-
-        else:
-            is_type_of = None
+        is_type_of = self._get_is_type_of(object_type)
 
         graphql_object_type = GraphQLObjectType(
             name=object_type_name,
@@ -480,3 +471,25 @@ class GraphQLCoreConverter:
         )
 
         return graphql_union
+
+    def _get_is_type_of(
+        self,
+        object_type: TypeDefinition,
+    ) -> Optional[Callable[[Any, GraphQLResolveInfo], bool]]:
+        if object_type.is_type_of:
+            return object_type.is_type_of
+
+        if object_type.interfaces:
+
+            def is_type_of(obj: Any, _info: GraphQLResolveInfo) -> bool:
+                if object_type.concrete_of and (
+                    hasattr(obj, "_type_definition")
+                    and obj._type_definition.origin is object_type.concrete_of.origin
+                ):
+                    return True
+
+                return isinstance(obj, object_type.origin)
+
+            return is_type_of
+
+        return None
