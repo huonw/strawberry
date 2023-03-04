@@ -1,9 +1,9 @@
 from textwrap import dedent
-from typing import Optional
+from typing import Optional, Union
 from typing_extensions import Annotated
 
 import strawberry
-from strawberry.unset import UNSET
+from strawberry.unset import UNSET, UnsetType
 
 
 def test_argument_descriptions():
@@ -130,6 +130,82 @@ def test_optional_input_field_unset():
     class TestInput:
         name: Optional[str] = UNSET
         age: Optional[int] = UNSET
+
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def hello(self, input: TestInput) -> str:
+            if input.name is UNSET:
+                return "Hi there"
+            return f"Hi {input.name}"
+
+    schema = strawberry.Schema(query=Query)
+
+    assert (
+        str(schema)
+        == dedent(
+            """
+        type Query {
+          hello(input: TestInput!): String!
+        }
+
+        input TestInput {
+          name: String
+          age: Int
+        }
+        """
+        ).strip()
+    )
+
+    result = schema.execute_sync(
+        """
+        query {
+            hello(input: {})
+        }
+    """
+    )
+    assert not result.errors
+    assert result.data == {"hello": "Hi there"}
+
+
+def test_optional_argument_strict_unset():
+    @strawberry.type
+    class Query:
+        @strawberry.field
+        def hello(
+            self,
+            name: Union[UnsetType, str] = UnsetType(),
+            age: Union[UnsetType, int] = UnsetType(),
+        ) -> str:
+            if name is UnsetType():
+                return "Hi there"
+            return f"Hi {name}"
+
+    schema = strawberry.Schema(query=Query)
+
+    assert str(schema) == dedent(
+        """\
+        type Query {
+          hello(name: String, age: Int): String!
+        }"""
+    )
+
+    result = schema.execute_sync(
+        """
+        query {
+            hello
+        }
+    """
+    )
+    assert not result.errors
+    assert result.data == {"hello": "Hi there"}
+
+
+def test_optional_input_field_strict_unset():
+    @strawberry.input
+    class TestInput:
+        name: Union[UnsetType, str] = UnsetType()
+        age: Union[UnsetType, int] = UnsetType()
 
     @strawberry.type
     class Query:

@@ -189,7 +189,7 @@ class StrawberryAnnotation:
         types = evaled_type.__args__
         non_optional_types = tuple(
             filter(
-                lambda x: x is not type(None) and x is not type(UNSET),
+                lambda x: not self._is_none_or_unset_type(x),
                 types,
             )
         )
@@ -250,8 +250,13 @@ class StrawberryAnnotation:
         return isinstance(annotation, LazyType)
 
     @classmethod
+    def _is_none_or_unset_type(cls, ty: object) -> bool:
+        return ty is type(None) or ty is type(UNSET)
+
+    @classmethod
     def _is_optional(cls, annotation: Any) -> bool:
-        """Returns True if the annotation is Optional[SomeType]"""
+        """Returns True if the annotation is Optional[SomeType] or
+        Union[UnsetType, ...]"""
 
         # Optionals are represented as unions
         if not cls._is_union(annotation):
@@ -259,8 +264,8 @@ class StrawberryAnnotation:
 
         types = annotation.__args__
 
-        # A Union to be optional needs to have at least one None type
-        return any(x is type(None) for x in types)
+        # A Union to be optional needs to have at least one None-like type
+        return any(cls._is_none_or_unset_type(x) for x in types)
 
     @classmethod
     def _is_list(cls, annotation: Any) -> bool:

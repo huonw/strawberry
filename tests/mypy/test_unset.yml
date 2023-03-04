@@ -11,3 +11,36 @@
     reveal_type(User().name)
   out: |
     main:9: note: Revealed type is "Union[builtins.str, None]"
+
+- case: test_unset_type_default_error
+  main: |
+    import strawberry
+    from strawberry.unset import UnsetType
+
+    @strawberry.type
+    class User:
+        name: str = UnsetType()
+  out: |
+    main:6: error: Incompatible types in assignment (expression has type "UnsetType", variable has type "str")  [assignment]
+
+- case: test_unset_type_default_valid_narrowing
+  main: |
+    import strawberry
+    from typing import Union
+    from strawberry.unset import UnsetType
+
+    @strawberry.input
+    class User:
+        name: Union[UnsetType, str] = UnsetType()
+
+    def func(x: User):
+      # we're reminded to check
+      must_be_str: str = x.name
+
+      if not isinstance(x.name, UnsetType):
+        # checking narrows correctly
+        reveal_type(x.name)
+
+  out: |
+    main:11: error: Incompatible types in assignment (expression has type "Union[UnsetType, str]", variable has type "str")  [assignment]
+    main:15: note: Revealed type is "builtins.str"
